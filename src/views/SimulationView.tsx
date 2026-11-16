@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { MAX_SPEED, MIN_SPEED, type Command } from '../domain/simulatedRobot';
 import { type Simulation } from '../hooks/useSimulation';
 import { SceneView } from '../scene/SceneView';
+import { VideoFrame } from '../components/VideoFrame';
+import { ControlKeys, type Key } from '../components/ControlKeys';
+import { useDemoTelemetry } from '../hooks/useDemoTelemetry';
 import { statusLabel, type ServoAngle } from '../scene/status';
 
 /** Pas envoyés par appui : 4 pas durent 1,6 s à la vitesse 40, comme la maquette [À CONFIRMER sur le robot]. */
@@ -13,6 +16,21 @@ const fv = (v: number, d: number) => v.toFixed(d).replace('.', ',');
 const capitalize = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 type Props = { sim: Simulation };
+
+/** Traduit une touche en commande du simulateur. */
+function toCommand(k: Key, speed: number): Command {
+  const steps = STEPS_PER_PRESS;
+  switch (k) {
+    case 'forward':
+    case 'backward':
+      return { type: 'walk', direction: k, steps, speed };
+    case 'left':
+    case 'right':
+      return { type: 'turn', direction: k, steps, speed };
+    default:
+      return { type: k, speed };
+  }
+}
 
 function TopView({ xCm, yCm, headingDeg }: { xCm: number; yCm: number; headingDeg: number }) {
   const clamp = (v: number) => Math.max(-HALF_SIDE_CM, Math.min(HALF_SIDE_CM, v));
@@ -36,23 +54,6 @@ function TopView({ xCm, yCm, headingDeg }: { xCm: number; yCm: number; headingDe
       </g>
     </svg>
   );
-}
-
-/** Télémétrie d'exemple de la maquette : valeurs factices qui varient légèrement. */
-function useDemoTelemetry() {
-  const [t, setT] = useState({ lat: 14, temp: 48 });
-  useEffect(() => {
-    const id = setInterval(
-      () =>
-        setT((p) => ({
-          lat: 12 + Math.round(Math.random() * 5),
-          temp: Math.round((p.temp + (Math.random() - 0.5) * 0.6) * 10) / 10,
-        })),
-      2000,
-    );
-    return () => clearInterval(id);
-  }, []);
-  return t;
 }
 
 export function SimulationView({ sim }: Props) {
@@ -85,11 +86,11 @@ export function SimulationView({ sim }: Props) {
           fichier STEP publié par SunFounder, avec ses 12 servos.
         </p>
       </div>
-      <div className="g12">
-        <div className="s7 col left">
+      <div className="stack">
+        <div className="col left">
           <figure>
             <div className="plate">
-              <div className="stage">
+              <VideoFrame className="stage">
                 <div className="simband">Simulation · aucun robot réel n&apos;est piloté</div>
                 {scene3d ? (
                   <SceneView snapshot={s} onUnavailable={onUnavailable} onServos={setServos} />
@@ -99,10 +100,19 @@ export function SimulationView({ sim }: Props) {
                 <div className="hud tl" aria-hidden="true">
                   Vue orbitale · glisser pour tourner
                 </div>
+                <ControlKeys
+                  poses={['sit', 'stand', 'wave']}
+                  disabled={blocked}
+                  speed={speed}
+                  min={MIN_SPEED}
+                  max={MAX_SPEED}
+                  onSpeed={setSpeed}
+                  onPress={(k) => send(toCommand(k, speed))}
+                />
                 <div className="hud br">
                   Pose : {status} · cap {heading}°
                 </div>
-              </div>
+              </VideoFrame>
             </div>
             <figcaption>
               {scene3d
@@ -140,7 +150,7 @@ export function SimulationView({ sim }: Props) {
             </div>
           </div>
         </div>
-        <div className="s5 col">
+        <div className="panels">
           <section className="pnl" aria-labelledby="p-etat">
             <header className="ph">
               <h2 id="p-etat">État du robot</h2>
@@ -161,52 +171,6 @@ export function SimulationView({ sim }: Props) {
               <dt>Vitesse</dt>
               <dd>{speed} / 70</dd>
             </dl>
-          </section>
-          <section className="pnl" aria-labelledby="p-cmd">
-            <header className="ph">
-              <h2 id="p-cmd">Pose et marche</h2>
-              <span className="meta">flèches du clavier, focus sur une commande</span>
-            </header>
-            <div className="pb">
-              <div className="poses" role="group" aria-label="Pose">
-                {(
-                  [
-                    ['sit', 'Assis'],
-                    ['stand', 'Debout'],
-                    ['wave', 'Saluer'],
-                  ] as const
-                ).map(([type, label]) => (
-                  <button
-                    key={type}
-                    type="button"
-                    className="btn"
-                    disabled={blocked}
-                    onClick={() => send({ type, speed })}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <WalkPad blocked={blocked} speed={speed} send={send} />
-              <div className="speed">
-                <label htmlFor="spd">
-                  Vitesse <span className="spdv">{speed}</span> · plage {MIN_SPEED} à {MAX_SPEED}
-                </label>
-                <input
-                  id="spd"
-                  type="range"
-                  min={MIN_SPEED}
-                  max={MAX_SPEED}
-                  step={5}
-                  value={speed}
-                  aria-describedby="spdHint"
-                  onChange={(e) => setSpeed(Number(e.target.value))}
-                />
-                <p className="note" id="spdHint">
-                  Une vitesse hors de la plage 20 à 70 est refusée, jamais ramenée dans la plage.
-                </p>
-              </div>
-            </div>
           </section>
           <section className="pnl" aria-labelledby="p-servos">
             <header className="ph">
@@ -247,63 +211,5 @@ export function SimulationView({ sim }: Props) {
         </div>
       </div>
     </section>
-  );
-}
-
-function WalkPad({
-  blocked,
-  speed,
-  send,
-}: {
-  blocked: boolean;
-  speed: number;
-  send: Simulation['send'];
-}) {
-  const walk = (direction: 'forward' | 'backward'): Command => ({
-    type: 'walk',
-    direction,
-    steps: STEPS_PER_PRESS,
-    speed,
-  });
-  const turn = (direction: 'left' | 'right'): Command => ({
-    type: 'turn',
-    direction,
-    steps: STEPS_PER_PRESS,
-    speed,
-  });
-  const keys: Record<string, Command> = {
-    ArrowUp: walk('forward'),
-    ArrowDown: walk('backward'),
-    ArrowLeft: turn('left'),
-    ArrowRight: turn('right'),
-  };
-  // Flèches actives seulement quand le focus est sur une commande de ce pavé.
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    const cmd = keys[e.key];
-    if (cmd && !blocked) {
-      e.preventDefault();
-      send(cmd);
-    }
-  };
-  const btn = (label: string, cmd: Command) => (
-    <button
-      type="button"
-      className="btn"
-      disabled={blocked}
-      onKeyDown={onKeyDown}
-      onClick={() => send(cmd)}
-    >
-      {label}
-    </button>
-  );
-  return (
-    <div className="pad3" role="group" aria-label="Marche">
-      <span />
-      {btn('Avancer', walk('forward'))}
-      <span />
-      {btn('Gauche', turn('left'))}
-      {btn('Reculer', walk('backward'))}
-      {btn('Droite', turn('right'))}
-    </div>
   );
 }

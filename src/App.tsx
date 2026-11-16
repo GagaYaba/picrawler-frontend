@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Brand } from './components/Brand';
 import { EmergencyStop } from './components/EmergencyStop';
+import { StopContext } from './components/StopContext';
 import { useSimulation } from './hooks/useSimulation';
+import { RealRobotView } from './views/RealRobotView';
 import { SimulationView } from './views/SimulationView';
 import { VIEWS, viewFromHash } from './viewList';
 
@@ -31,7 +33,7 @@ export function App() {
   }, [current]);
 
   return (
-    <>
+    <StopContext.Provider value={{ active: estop, engage, reset }}>
       <a className="skip" href="#main">
         Aller au contenu
       </a>
@@ -51,6 +53,8 @@ export function App() {
       <main id="main" className="pad" tabIndex={-1}>
         {view === 'simulation' ? (
           <SimulationView sim={sim} />
+        ) : view === 'robot' ? (
+          <RealRobotView sim={sim} />
         ) : (
           <>
             <h1 className="sec">
@@ -72,7 +76,10 @@ export function App() {
               </>
             ) : (
               <>
-                <b>Prêt.</b> Simulation active, aucun robot réel piloté.
+                <b>Prêt.</b>{' '}
+                {view === 'robot'
+                  ? 'Robot réel non joint, commandes simulées.'
+                  : 'Simulation active, aucun robot réel piloté.'}
                 <small>Échap déclenche l&apos;arrêt d&apos;urgence sur tous les écrans.</small>
               </>
             )}
@@ -80,6 +87,6 @@ export function App() {
           <span className="link">Paris → Toulouse · 680 km</span>
         </div>
       </footer>
-    </>
+    </StopContext.Provider>
   );
 }
