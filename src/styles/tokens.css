@@ -1,0 +1,19 @@
+/* Valeurs reprises de la Charte PiCrawler (sections 01 à 03). */
+:root {
+  --creme: #f3efe5;
+  --papier: #faf7f0;
+  --pierre: #d5d2c8;
+  --pierre-f: #5f5b50;
+  --encre: #14130f;
+  --cobalt: #20477d;
+  --ocre: #e1a720;
+  --ocre-f: #8a5a00;
+  --vert: #2e6b3f;
+  --rouge: #c8102e;
+  --rouge-survol: #a50d26;
+  --blanc: #ffffff;
+  --cond: 'Oswald', 'Arial Narrow', sans-serif;
+  --serif: 'Newsreader', Georgia, serif;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  color-scheme: light;
+}
