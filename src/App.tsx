@@ -1,12 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Brand } from './components/Brand';
 import { EmergencyStop } from './components/EmergencyStop';
-import { VIEWS, viewFromHash } from './views';
+import { useSimulation } from './hooks/useSimulation';
+import { SimulationView } from './views/SimulationView';
+import { VIEWS, viewFromHash } from './viewList';
 
 export function App() {
   const [view, setView] = useState(() => viewFromHash(window.location.hash));
   const [estop, setEstop] = useState(false);
-  const engage = useCallback(() => setEstop(true), []);
-  const reset = useCallback(() => setEstop(false), []);
+  const sim = useSimulation();
+  const { engageStop, resetStop } = sim;
+  const engage = useCallback(() => {
+    setEstop(true);
+    engageStop();
+  }, [engageStop]);
+  const reset = useCallback(() => {
+    setEstop(false);
+    resetStop();
+  }, [resetStop]);
 
   useEffect(() => {
     const onHash = () => setView(viewFromHash(window.location.hash));
@@ -28,9 +39,7 @@ export function App() {
         Aller à l&apos;arrêt d&apos;urgence
       </a>
       <header className="top pad">
-        <a href="#simulation" aria-label="PiCrawler : revenir à la simulation">
-          PiCrawler
-        </a>
+        <Brand />
         <nav className="tabs" aria-label="Sections">
           {VIEWS.map((v) => (
             <a key={v.id} href={`#${v.id}`} aria-current={v.id === view ? 'page' : undefined}>
@@ -40,26 +49,35 @@ export function App() {
         </nav>
       </header>
       <main id="main" className="pad" tabIndex={-1}>
-        <h1 className="sec">
-          {current.title}
-          <span>{current.subtitle}</span>
-        </h1>
-        <p>Écran en cours de construction.</p>
+        {view === 'simulation' ? (
+          <SimulationView sim={sim} />
+        ) : (
+          <>
+            <h1 className="sec">
+              {current.title}
+              <span>{current.subtitle}</span>
+            </h1>
+            <p>Écran en cours de construction.</p>
+          </>
+        )}
       </main>
       <footer className="safety pad" aria-label="Sécurité">
         <div className="in">
           <EmergencyStop active={estop} onEngage={engage} onReset={reset} />
-          <div role="status">
+          <div className="sstate" role="status">
             {estop ? (
               <>
-                <b>Arrêt actif.</b> Appuyer sur « Réarmer » pour reprendre.
+                <b>Arrêt actif.</b> Mouvements interrompus, robot en position assise.
+                <small>Appuyer sur « Réarmer » pour reprendre.</small>
               </>
             ) : (
               <>
-                <b>Prêt.</b> Échap déclenche l&apos;arrêt d&apos;urgence sur tous les écrans.
+                <b>Prêt.</b> Simulation active, aucun robot réel piloté.
+                <small>Échap déclenche l&apos;arrêt d&apos;urgence sur tous les écrans.</small>
               </>
             )}
           </div>
+          <span className="link">Paris → Toulouse · 680 km</span>
         </div>
       </footer>
     </>
