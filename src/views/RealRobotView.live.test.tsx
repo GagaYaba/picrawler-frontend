@@ -68,6 +68,7 @@ describe('Robot réel screen, connected to the backend', () => {
       expect(within(pad()).getByRole('button', { name: 'Avancer' })).toBeEnabled(),
     );
     expect(await screen.findByText('7,80')).toBeInTheDocument();
+    expect(screen.getByText(/Backend connecté · robot simulé/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Debout' }));
     expect(calls).toContain('POST /commands/stand');
     expect(calls).toContain('POST /heartbeat');
