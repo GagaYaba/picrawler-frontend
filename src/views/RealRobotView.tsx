@@ -9,6 +9,8 @@ import {
   type FeedState,
   type Telemetry,
 } from '../domain/realRobotDemo';
+import { ApiError, createRobotApi, type RobotApi } from '../api/robotApi';
+import { useRobotLink } from '../hooks/useRobotLink';
 import { MAX_SPEED, MIN_SPEED } from '../domain/simulatedRobot';
 import { VideoFrame } from '../components/VideoFrame';
 import { ControlKeys, type Key } from '../components/ControlKeys';
@@ -42,6 +44,12 @@ const ALERT_LABEL: Record<DemoAlert, string> = {
 
 /** Horloge du navigateur, lue seulement dans les gestionnaires d'événements. */
 const nowMs = () => Date.now();
+
+const lostLinkAlert = () => ({
+  level: 'crit' as const,
+  title: 'Liaison perdue',
+  text: "Aucune réponse du robot dans le délai : il s'assoit seul. Les commandes sont suspendues jusqu'au retour de la liaison.",
+});
 
 type Entry = { id: number; time: string; text: string };
 
@@ -102,29 +110,43 @@ function drawSample(canvas: HTMLCanvasElement) {
   x.fillText("IMAGE D'EXEMPLE · MAQUETTE", W / 2, 150);
 }
 
-type Props = { sim: Simulation };
+type Props = { sim: Simulation; apiUrl?: string };
 
 /**
- * Écran Robot réel. Aucun robot n'est joint : le flux, les mesures et les commandes
- * sont simulés comme dans la maquette, en attendant le raccordement au backend.
+ * Écran Robot réel. Sans adresse d'API (VITE_API_URL), tout est simulé comme dans la maquette.
+ * Avec une adresse, la session, la pulsation, la télémétrie, les commandes et l'arrêt d'urgence
+ * passent par le backend. Le flux caméra reste factice : le backend n'en expose pas encore.
  */
-export function RealRobotView({ sim }: Props) {
+export function RealRobotView({ sim, apiUrl = import.meta.env.VITE_API_URL }: Props) {
   const { speed, setSpeed, snapshot } = sim;
   const estop = snapshot.emergencyStopped;
   const demo = useDemoTelemetry();
-  const tele: Telemetry = {
-    latencyMs: demo.lat,
-    batteryV: 7.99,
-    tempC: demo.temp,
-    obstacleCm: 62,
-  };
-  const [session, setSession] = useState(false);
+  const [api, setApi] = useState<RobotApi | null>(null);
+  const live = Boolean(apiUrl);
+  const robot = useRobotLink(api);
+  const rt = robot.telemetry;
+  // En direct, une mesure absente (null) n'est ni affichée ni comparée aux seuils.
+  const tele: Telemetry = live
+    ? {
+        latencyMs: robot.latencyMs ?? 0,
+        batteryV: rt?.battery_voltage ?? Number.POSITIVE_INFINITY,
+        tempC: rt?.cpu_temperature_celsius ?? Number.NEGATIVE_INFINITY,
+        obstacleCm: Number.POSITIVE_INFINITY,
+      }
+    : { latencyMs: demo.lat, batteryV: 7.99, tempC: demo.temp, obstacleCm: 62 };
+  const [demoSession, setDemoSession] = useState(false);
+  const session = live ? api !== null : demoSession;
+  const setSession = (v: boolean) => (live ? (v ? undefined : setApi(null)) : setDemoSession(v));
   const [tokenError, setTokenError] = useState('');
   const [feed, setFeed] = useState<FeedState>('on');
   const [alert, setAlert] = useState<DemoAlert>('none');
   const [pose, setPose] = useState<'assis' | 'debout'>('assis');
   const [log, setLog] = useState<Entry[]>(() => [
-    { id: 0, time: stamp(), text: 'Console prête · aucun robot réel joint' },
+    {
+      id: 0,
+      time: stamp(),
+      text: live ? 'Console prête · session à ouvrir' : 'Console prête · aucun robot réel joint',
+    },
   ]);
   const [clock, setClock] = useState(stamp);
   const nextId = useRef(1);
@@ -161,9 +183,29 @@ export function RealRobotView({ sim }: Props) {
     }
   }, [estop, write]);
 
-  const e = effective(tele, alert);
-  const alerts = alertsFor(tele, alert, feed);
-  const gate = commandGate({ session, feed, estop, link: e.link });
+  // L'arrêt d'urgence de l'écran est transmis au backend, qui l'applique aussi de son côté.
+  const synced = useRef<{ api: RobotApi | null; estop: boolean }>({ api: null, estop: false });
+  useEffect(() => {
+    const prev = synced.current;
+    synced.current = { api, estop };
+    if (!api) return;
+    if (estop) {
+      api.emergencyStop().catch(() => write("Arrêt d'urgence non transmis au robot"));
+    } else if (prev.api === api && prev.estop) {
+      api.resetEmergencyStop().catch(() => write('Réarmement non transmis au robot'));
+    }
+  }, [api, estop, write]);
+
+  const base = effective(tele, alert);
+  const e = live ? { ...base, link: robot.link } : base;
+  const alerts = alertsFor(tele, alert, feed).filter((a) => !live || a.title !== 'Liaison perdue');
+  if (live && !e.link) alerts.unshift(lostLinkAlert());
+  const gate = commandGate({
+    session,
+    feed,
+    estop: estop || Boolean(live && rt?.emergency_stopped),
+    link: e.link,
+  });
   const on = feed === 'on';
 
   const send = (c: Key) => {
@@ -173,6 +215,19 @@ export function RealRobotView({ sim }: Props) {
     lastCmd.current = now;
     if (c === 'sit') setPose('assis');
     else if (c === 'stand') setPose('debout');
+    if (api) {
+      const call =
+        c === 'sit'
+          ? api.sit(speed)
+          : c === 'stand'
+            ? api.stand(speed)
+            : c === 'forward' || c === 'backward'
+              ? api.walk(c, 1, speed)
+              : api.turn(c === 'left' ? 'left' : 'right', 1, speed);
+      call.catch((err: unknown) =>
+        write(`Commande refusée : ${err instanceof Error ? err.message : 'erreur'}`),
+      );
+    }
     write(c === 'sit' || c === 'stand' ? LABELS[c] : `${LABELS[c]} · vitesse ${speed}`);
   };
 
@@ -202,37 +257,56 @@ export function RealRobotView({ sim }: Props) {
     }, 1600);
   };
 
-  const submit = (ev: React.FormEvent) => {
+  const submit = async (ev: React.FormEvent) => {
     ev.preventDefault();
     const input = token.current!;
     if (input.value.length < TOKEN_MIN_LENGTH) {
       setTokenError(`Jeton trop court : ${TOKEN_MIN_LENGTH} caractères minimum.`);
       return;
     }
+    if (apiUrl) {
+      // Le jeton est vérifié par le backend avant d'ouvrir la session, puis gardé en mémoire seulement.
+      const candidate = createRobotApi(apiUrl, input.value);
+      try {
+        await candidate.telemetry();
+      } catch (err) {
+        setTokenError(
+          err instanceof ApiError && err.kind === 'auth'
+            ? 'Jeton refusé par le robot.'
+            : 'Robot injoignable : vérifier la liaison.',
+        );
+        return;
+      }
+      setApi(candidate);
+    } else {
+      setSession(true);
+    }
     setTokenError('');
     input.value = '';
-    setSession(true);
     write('Session opérateur ouverte');
   };
 
-  const status = estop
-    ? "Arrêt d'urgence"
-    : !e.link
-      ? 'Assis · liaison perdue'
-      : on
-        ? pose === 'assis'
-          ? 'Assis'
-          : 'Debout'
-        : 'Hors ligne';
+  const shownPose = live && rt ? (rt.posture === 'standing' ? 'debout' : 'assis') : pose;
+  const status =
+    estop || (live && rt?.emergency_stopped)
+      ? "Arrêt d'urgence"
+      : !e.link
+        ? 'Assis · liaison perdue'
+        : on
+          ? shownPose === 'assis'
+            ? 'Assis'
+            : 'Debout'
+          : 'Hors ligne';
+  const num = (v: number, d: number) => (Number.isFinite(v) ? fv(v, d) : '—');
 
   const big: [string, string | number, string, string][] = [
-    ['Latence', on ? tele.latencyMs : '—', 'ms', ''],
-    ['Débit', on ? '30' : '—', 'Mbit/s', ''],
-    ['Batterie', fv(e.batteryV, 2), 'V', e.batteryV < LIMITS.batteryMinV ? 'basse' : ''],
-    ['Température', fv(e.tempC, 1), '°C', e.tempC >= LIMITS.tempMaxC ? 'élevée' : ''],
+    ['Latence', live ? (robot.latencyMs ?? '—') : on ? tele.latencyMs : '—', 'ms', ''],
+    ['Débit', live ? '—' : on ? '30' : '—', 'Mbit/s', ''],
+    ['Batterie', num(e.batteryV, 2), 'V', e.batteryV < LIMITS.batteryMinV ? 'basse' : ''],
+    ['Température', num(e.tempC, 1), '°C', e.tempC >= LIMITS.tempMaxC ? 'élevée' : ''],
     [
       'Obstacle',
-      on ? e.obstacleCm : '—',
+      on && Number.isFinite(e.obstacleCm) ? e.obstacleCm : '—',
       'cm',
       on && e.obstacleCm < LIMITS.obstacleMinCm ? 'proche' : '',
     ],
@@ -403,33 +477,38 @@ export function RealRobotView({ sim }: Props) {
                 <dt>Pulsation</dt>
                 <dd>{e.link ? `Reçue · délai ${LIMITS.heartbeatS} s` : 'Perdue'}</dd>
               </dl>
-              <Demo label="État de démonstration du flux">
-                {(['on', 'loading', 'off'] as const).map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    aria-pressed={feed === f}
-                    onClick={() => chooseFeed(f)}
-                  >
-                    {f === 'on' ? 'Connecté' : f === 'loading' ? 'Chargement' : 'Déconnecté'}
-                  </button>
-                ))}
-              </Demo>
-              <Demo label="État de démonstration des alertes" wrap>
-                {(Object.keys(ALERT_LABEL) as DemoAlert[]).map((a) => (
-                  <button
-                    key={a}
-                    type="button"
-                    aria-pressed={alert === a}
-                    onClick={() => chooseAlert(a)}
-                  >
-                    {ALERT_LABEL[a]}
-                  </button>
-                ))}
-              </Demo>
+              {!live && (
+                <>
+                  <Demo label="État de démonstration du flux">
+                    {(['on', 'loading', 'off'] as const).map((f) => (
+                      <button
+                        key={f}
+                        type="button"
+                        aria-pressed={feed === f}
+                        onClick={() => chooseFeed(f)}
+                      >
+                        {f === 'on' ? 'Connecté' : f === 'loading' ? 'Chargement' : 'Déconnecté'}
+                      </button>
+                    ))}
+                  </Demo>
+                  <Demo label="État de démonstration des alertes" wrap>
+                    {(Object.keys(ALERT_LABEL) as DemoAlert[]).map((a) => (
+                      <button
+                        key={a}
+                        type="button"
+                        aria-pressed={alert === a}
+                        onClick={() => chooseAlert(a)}
+                      >
+                        {ALERT_LABEL[a]}
+                      </button>
+                    ))}
+                  </Demo>
+                </>
+              )}
               <p className="note">
-                Maquette : aucun robot n&apos;est joint, l&apos;image est factice. Seuils
-                d&apos;alerte provisoires, à confirmer.
+                {live
+                  ? "Commandes, pulsation et mesures reçues du backend. L'image est factice : le backend n'expose pas encore la caméra. Obstacle et débit non mesurés. Seuils d'alerte provisoires, à confirmer."
+                  : "Maquette : aucun robot n'est joint, l'image est factice. Seuils d'alerte provisoires, à confirmer."}
               </p>
             </div>
           </section>

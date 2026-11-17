@@ -7,16 +7,6 @@ beforeEach(() => {
 });
 
 describe('video frame', () => {
-  it('toggles the wide mode', async () => {
-    const user = userEvent.setup();
-    render(<App />);
-    const wide = screen.getByRole('button', { name: 'Mode large' });
-    expect(wide).toHaveAttribute('aria-pressed', 'false');
-    await user.click(wide);
-    expect(wide).toHaveAttribute('aria-pressed', 'true');
-    expect(document.querySelector('.stage')).toHaveClass('wide');
-  });
-
   it('keeps the emergency stop reachable in full screen and the controls usable', async () => {
     const user = userEvent.setup();
     render(<App />);

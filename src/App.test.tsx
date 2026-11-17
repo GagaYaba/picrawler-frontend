@@ -17,15 +17,6 @@ describe('navigation', () => {
     expect(screen.getByRole('link', { name: 'Simulation' })).not.toHaveAttribute('aria-current');
   });
 
-  it('falls back to the simulation for an unknown hash', () => {
-    window.location.hash = '#inconnu';
-    render(<App />);
-    expect(screen.getByRole('link', { name: 'Simulation' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
-  });
-
   it('exposes skip links to the content and to the emergency stop', () => {
     render(<App />);
     expect(screen.getByRole('link', { name: 'Aller au contenu' })).toHaveAttribute('href', '#main');

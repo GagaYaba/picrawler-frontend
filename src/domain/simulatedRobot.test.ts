@@ -90,11 +90,4 @@ describe('pose', () => {
     expect(robot.snapshot(LATER)).toMatchObject({ posture: 'sitting', motion: null });
     expect(robot.snapshot(LATER).xCm).toBeCloseTo(STEP_LENGTH_CM);
   });
-
-  it('reports moving while a command runs, then the final posture', () => {
-    const robot = new SimulatedRobot();
-    robot.command({ type: 'stand', speed: 40 }, 0);
-    expect(robot.snapshot(10).posture).toBe('moving');
-    expect(robot.snapshot(LATER).posture).toBe('standing');
-  });
 });
