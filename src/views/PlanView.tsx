@@ -204,6 +204,7 @@ export function PlanView() {
           embedUrl={VIDEO.embed}
           watchUrl={VIDEO.watch}
           poster={`${base}plan/robot.webp`}
+          thumbs={VIDEO.thumbs}
           caption="SunFounder PiCrawler Kit for Raspberry Pi, tutoriel d’assemblage · chaîne SunFounder Maker Education."
         />
       </section>

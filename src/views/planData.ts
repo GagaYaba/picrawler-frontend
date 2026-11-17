@@ -378,6 +378,10 @@ export const VIDEO = {
   id: 'vna6QtXPGt4',
   watch: 'https://www.youtube.com/watch?v=vna6QtXPGt4',
   embed: 'https://www.youtube-nocookie.com/embed/vna6QtXPGt4',
+  thumbs: [
+    'https://i.ytimg.com/vi/vna6QtXPGt4/maxresdefault.jpg',
+    'https://i.ytimg.com/vi/vna6QtXPGt4/hqdefault.jpg',
+  ],
 };
 
 /**

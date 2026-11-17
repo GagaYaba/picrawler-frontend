@@ -1858,3 +1858,8 @@ input::placeholder {
 .plan-sec a.video-play:hover {
   color: var(--encre);
 }
+.video-bg.thumb {
+  padding: 0;
+  object-fit: cover;
+  opacity: 0.6;
+}
