@@ -7,7 +7,7 @@ updates:
       interval: monthly
     open-pull-requests-limit: 5
     commit-message:
-      prefix: "chore(deps)"
+      prefix: 'chore(deps)'
     groups:
       npm-minor-patch:
         update-types: [minor, patch]
@@ -18,4 +18,4 @@ updates:
     schedule:
       interval: monthly
     commit-message:
-      prefix: "ci(deps)"
+      prefix: 'ci(deps)'
