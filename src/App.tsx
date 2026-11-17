@@ -73,7 +73,9 @@ export function App() {
               <>
                 <b>Prêt.</b>{' '}
                 {view === 'robot'
-                  ? 'Robot réel non joint, commandes simulées.'
+                  ? import.meta.env.VITE_API_URL
+                    ? 'Backend connecté · robot simulé.'
+                    : 'Robot réel non joint, commandes simulées.'
                   : 'Simulation active, aucun robot réel piloté.'}
                 <small>Échap déclenche l&apos;arrêt d&apos;urgence sur tous les écrans.</small>
               </>

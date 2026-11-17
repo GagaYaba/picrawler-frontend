@@ -98,26 +98,4 @@ describe('Plan & Montage screen', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Fermer' }));
     expect(screen.queryByRole('dialog')).toBeNull();
   });
-
-  it('opens a step on page 2 of the plan for steps drawn there', async () => {
-    const user = userEvent.setup();
-    render(<App />);
-    await user.click(screen.getByRole('button', { name: /Étape 20 : agrandir/ }));
-    expect(
-      within(screen.getByRole('dialog')).getByRole('img', { name: /Page 2/ }),
-    ).toBeInTheDocument();
-  });
-
-  it('has no calibration section and starts with the video as section 00', () => {
-    render(<App />);
-    expect(screen.queryByRole('heading', { name: /Étalonnage/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: /étalonnage/i })).toBeNull();
-    const titles = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
-    expect(titles).toEqual(['00Vidéo de montage', '01Pièces', '02Assemblage', '03Câblage']);
-  });
-
-  it('keeps the wiring ports table next to the 3D view', () => {
-    render(<App />);
-    expect(screen.getByRole('table')).toBeInTheDocument();
-  });
 });

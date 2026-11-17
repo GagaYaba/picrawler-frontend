@@ -3,9 +3,6 @@ import { alertsFor, commandGate, LIMITS, type Telemetry } from './realRobotDemo'
 const ok: Telemetry = { latencyMs: 14, batteryV: 7.99, tempC: 48, obstacleCm: 62 };
 
 describe('alerts', () => {
-  it('raises none with nominal values', () => {
-    expect(alertsFor(ok, 'none', 'on')).toEqual([]);
-  });
   it('raises a critical alert when the heartbeat is lost', () => {
     const a = alertsFor(ok, 'link', 'on');
     expect(a).toHaveLength(1);

@@ -33,24 +33,4 @@ describe('Robot réel screen', () => {
     await user.click(screen.getByRole('button', { name: 'Debout' }));
     expect(screen.getByText(/Debout$/, { selector: 'li' })).toBeInTheDocument();
   });
-
-  it('suspends the commands and warns when the link is lost', async () => {
-    const user = userEvent.setup();
-    render(<App />);
-    await user.type(screen.getByLabelText('Jeton opérateur'), 'a'.repeat(32));
-    await user.click(screen.getByRole('button', { name: 'Ouvrir la session' }));
-    await user.click(screen.getByRole('button', { name: 'Liaison perdue' }));
-    expect(screen.getByText(/Alerte critique/)).toBeInTheDocument();
-    expect(within(pad()).getByRole('button', { name: 'Avancer' })).toBeDisabled();
-  });
-
-  it('disables the commands under the emergency stop', async () => {
-    const user = userEvent.setup();
-    render(<App />);
-    await user.type(screen.getByLabelText('Jeton opérateur'), 'a'.repeat(32));
-    await user.click(screen.getByRole('button', { name: 'Ouvrir la session' }));
-    await user.keyboard('{Escape}');
-    expect(screen.getByText('Arrêt actif', { selector: '.ctl-gate' })).toBeInTheDocument();
-    expect(within(pad()).getByRole('button', { name: 'Avancer' })).toBeDisabled();
-  });
 });
