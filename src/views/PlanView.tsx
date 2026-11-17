@@ -171,21 +171,16 @@ export function PlanView() {
         <h1 className="sec" id="h-plan">
           Plan &amp; montage<span>du robot</span>
         </h1>
-        <p>
-          Plan de montage SunFounder du PiCrawler : la vidéo de montage, les pièces, 32 étapes
-          d&apos;assemblage et le câblage des servos sur le modèle 3D.
-        </p>
       </div>
 
-      <nav className="plan-nav" aria-label="Sections du plan">
-        {SECTIONS.map(([id, label]) => (
-          <button key={id} type="button" className="chip" onClick={() => goto(id)}>
-            {label}
-          </button>
-        ))}
-      </nav>
-
-      <div className="plan-doc">
+      <div className="plan-bar">
+        <nav className="plan-nav" aria-label="Sections du plan">
+          {SECTIONS.map(([id, label]) => (
+            <button key={id} type="button" className="chip" onClick={() => goto(id)}>
+              {label}
+            </button>
+          ))}
+        </nav>
         <button
           type="button"
           className="chip chip-main"
@@ -193,9 +188,18 @@ export function PlanView() {
         >
           Ouvrir le plan d&apos;origine (zoom)
         </button>
+        <a className="chip chip-link" href={VIDEO.watch} target="_blank" rel="noopener noreferrer">
+          Ouvrir sur YouTube<span className="sr"> (s&apos;ouvre dans un nouvel onglet)</span>
+          <span aria-hidden="true"> ↗</span>
+        </a>
       </div>
 
-      <section id="pl-video" tabIndex={-1} className="plan-sec" aria-labelledby="h-video">
+      <section
+        id="pl-video"
+        tabIndex={-1}
+        className="plan-sec plan-first"
+        aria-labelledby="h-video"
+      >
         <h2 id="h-video" className="plan-h">
           <span className="num">00</span>Vidéo de montage
         </h2>

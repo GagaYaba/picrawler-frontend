@@ -244,10 +244,6 @@ export function RealRobotView({ sim }: Props) {
         <h1 className="sec" id="h-rob">
           Robot à Paris<span>poste à Toulouse</span>
         </h1>
-        <p>
-          Le robot est téléopéré : chaque mouvement est décidé depuis ce poste. Le flux vidéo passe
-          uniquement par la liaison privée.
-        </p>
       </div>
       <div className="alertbox" role="alert">
         {alerts.map((a) => (

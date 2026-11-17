@@ -1863,3 +1863,31 @@ input::placeholder {
   object-fit: cover;
   opacity: 0.6;
 }
+
+/* Barre d'actions sous le trait : sections, plan d'origine, lien YouTube. */
+.plan-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 6px;
+  border-top: 2px solid var(--encre);
+  padding: 14px 0;
+}
+.plan-bar .plan-nav {
+  padding-bottom: 0;
+}
+.plan-bar .chip-main {
+  margin-left: 14px;
+}
+.plan-bar a.chip-link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--encre);
+  text-decoration: none;
+}
+.plan-bar a.chip-link:hover {
+  background: var(--papier);
+}
+.plan-first {
+  border-top: 0;
+}

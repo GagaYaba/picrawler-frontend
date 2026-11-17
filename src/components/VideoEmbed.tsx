@@ -65,14 +65,6 @@ export function VideoEmbed({ title, embedUrl, watchUrl, poster, thumbs = [], cap
           </div>
         )}
       </div>
-      {MODE === 'embed' && (
-        <p className="video-links">
-          <a className="video-open" href={watchUrl} target="_blank" rel="noopener noreferrer">
-            Ouvrir sur YouTube<span className="sr"> (s&apos;ouvre dans un nouvel onglet)</span>
-            <span aria-hidden="true"> ↗</span>
-          </a>
-        </p>
-      )}
     </div>
   );
 }

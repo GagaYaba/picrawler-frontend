@@ -81,10 +81,6 @@ export function SimulationView({ sim }: Props) {
         <h1 className="sec" id="h-sim">
           Simulation<span>du robot</span>
         </h1>
-        <p>
-          Le modèle reproduit les commandes de pose et de marche sans matériel. Modèle 3D tiré du
-          fichier STEP publié par SunFounder, avec ses 12 servos.
-        </p>
       </div>
       <div className="stack">
         <div className="col left">
