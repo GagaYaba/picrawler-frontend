@@ -313,10 +313,6 @@ export function RealRobotView({ sim }: Props) {
                 </div>
               </VideoFrame>
             </div>
-            <figcaption>
-              Fig. 2 — Caméra OV5647, flux MJPEG par la liaison privée. Image d&apos;exemple de la
-              maquette.
-            </figcaption>
           </figure>
           <dl className="big" aria-label="Mesures du robot, valeurs d'exemple">
             {big.map(([k, v, u, al]) => (

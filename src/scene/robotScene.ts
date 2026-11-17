@@ -27,6 +27,8 @@ const C = {
 
 export type RobotScene = {
   setState: (s: Snapshot) => void;
+  /** Mode câblage : met en avant une patte (1 à 4) et ses étiquettes de ports, ou aucune. */
+  highlight: (leg: number | null) => void;
   /** Tourne la caméra : azimut et élévation, en radians. */
   rotate: (deltaAz: number, deltaEl?: number) => void;
   dispose: () => void;
@@ -84,6 +86,7 @@ export async function createRobotScene(
   modelUrl: string,
   reducedMotion: boolean,
   onServos: (angles: ServoAngle[]) => void,
+  opts: { wiring?: boolean } = {},
 ): Promise<RobotScene> {
   const gltf = await loadModel(modelUrl);
 
@@ -92,13 +95,14 @@ export async function createRobotScene(
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(35, 1.6, 0.1, 100);
   // Vue de trois quarts avant, comme la maquette.
-  let az = Math.PI / 2 + 0.05;
+  // En mode câblage, la caméra est derrière le robot et haute : l'avant est en haut de l'image.
+  let az = opts.wiring ? -Math.PI / 2 : Math.PI / 2 + 0.05;
   /** Élévation bornée comme la maquette : de 0,15 à 1,2 rad. */
   const EL_MIN = 0.15;
   const EL_MAX = 1.2;
   const clampEl = (v: number) => Math.max(EL_MIN, Math.min(EL_MAX, v));
-  let el = 0.5;
-  const dist = 4.9;
+  let el = opts.wiring ? 1.0 : 0.5;
+  const dist = opts.wiring ? 5.7 : 4.9;
   const placeCamera = () => {
     camera.position.set(
       Math.sin(az) * Math.cos(el) * dist,
@@ -151,6 +155,8 @@ export async function createRobotScene(
     ticks.add(t);
   }
   scene.add(ticks);
+  // Le cadran de cap n'a pas de sens pour le câblage : il encombrerait les étiquettes.
+  ring.visible = ticks.visible = !opts.wiring;
 
   const mat = (color: number, metalness: number, roughness: number) =>
     new THREE.MeshStandardMaterial({ color, metalness, roughness });
@@ -274,9 +280,10 @@ export async function createRobotScene(
   leader.append(leaderPath, leaderDot);
   const fleet = document.createElement('div');
   fleet.className = 'fleet';
-  overlay.append(leader, fleet);
+  if (!opts.wiring) overlay.append(leader, fleet);
   stage?.appendChild(overlay);
   legs.forEach((leg) => {
+    if (opts.wiring) return;
     const d = document.createElement('div');
     d.className = 'legtag';
     d.setAttribute('aria-hidden', 'true');
@@ -284,6 +291,50 @@ export async function createRobotScene(
     overlay.appendChild(d);
     labelEls.push(d);
   });
+
+  // Mode câblage : étiquettes de ports par patte, repères d'articulation, module à ultrasons.
+  const LEG_NAMES = ['avant droite', 'avant gauche', 'arrière gauche', 'arrière droite'];
+  const JOINT_NAMES = ['hanche', 'cuisse', 'pied'];
+  const matHi = mat(C.acc, 0.2, 0.5);
+  const legMeshes = legs.map((leg) => {
+    const arr: THREE.Mesh[] = [];
+    leg.yaw.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) arr.push(o as THREE.Mesh);
+    });
+    return arr;
+  });
+  const origMat = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+  const wtags: HTMLElement[] = [];
+  const wdots: HTMLElement[][] = [];
+  let usTag: HTMLElement | null = null;
+  let hatTag: HTMLElement | null = null;
+  if (opts.wiring) {
+    const mk = (cls: string, text: string) => {
+      const d = document.createElement('div');
+      d.className = cls;
+      d.textContent = text;
+      overlay.appendChild(d);
+      return d;
+    };
+    legs.forEach((leg) => {
+      const [p0, p1, p2] = PORTS[leg.label];
+      const t = mk('wtag', '');
+      const title = document.createElement('b');
+      title.textContent = `Patte ${leg.label}`;
+      const where = document.createElement('i');
+      where.textContent = LEG_NAMES[leg.label - 1];
+      t.append(title, where);
+      [p0, p1, p2].forEach((port, j) => {
+        const row = document.createElement('span');
+        row.textContent = `${j + 1} · P${port} ${JOINT_NAMES[j]}`;
+        t.appendChild(row);
+      });
+      wtags.push(t);
+      wdots.push([1, 2, 3].map((n) => mk('wdot', String(n))));
+    });
+    usTag = mk('wtag wtag-sm', 'Ultrasons : GND · 3V3 · D2 · D3');
+    hatTag = mk('wtag wtag-sm', 'Robot HAT');
+  }
 
   // État animé
   let target: Snapshot | null = null;
@@ -351,7 +402,55 @@ export async function createRobotScene(
 
   const v = new THREE.Vector3();
   const top = new THREE.Vector3();
+  const placeWiring = () => {
+    const w = canvas.clientWidth;
+    const hh = canvas.clientHeight;
+    body.updateWorldMatrix(true, false);
+    const screen = (o: THREE.Vector3) => {
+      o.project(camera);
+      return { x: ((o.x + 1) / 2) * w, y: ((1 - o.y) / 2) * hh };
+    };
+    const c = screen(new THREE.Vector3(0, 0.2, 0).applyMatrix4(body.matrixWorld));
+    legs.forEach((leg, i) => {
+      [leg.yaw, leg.fem, leg.tib].forEach((n, j) => {
+        n.updateWorldMatrix(true, false);
+        const p = screen(v.clone().setFromMatrixPosition(n.matrixWorld));
+        wdots[i][j].style.left = `${p.x}px`;
+        wdots[i][j].style.top = `${p.y}px`;
+      });
+      leg.foot.updateWorldMatrix(true, false);
+      const f = screen(v.clone().setFromMatrixPosition(leg.foot.matrixWorld));
+      const dx = f.x - c.x;
+      const dy = f.y - c.y;
+      const n = Math.hypot(dx, dy) || 1;
+      // L'étiquette part du pied vers l'extérieur et reste entièrement dans la vue.
+      const tw = wtags[i].offsetWidth;
+      const th = wtags[i].offsetHeight;
+      const x0 = f.x + (dx / n) * 26 - (dx >= 0 ? 0 : tw);
+      const y0 = f.y + (dy / n) * 26 - (dy >= 0 ? 0 : th);
+      wtags[i].style.left = `${Math.max(4, Math.min(w - tw - 4, x0))}px`;
+      wtags[i].style.top = `${Math.max(4, Math.min(hh - th - 4, y0))}px`;
+    });
+    if (usTag) {
+      const u = screen(
+        new THREE.Box3()
+          .setFromObject(ultrasonic as unknown as THREE.Object3D)
+          .getCenter(new THREE.Vector3()),
+      );
+      usTag.style.left = `${u.x}px`;
+      usTag.style.top = `${u.y - 34}px`;
+    }
+    if (hatTag) {
+      hatTag.style.left = `${c.x}px`;
+      hatTag.style.top = `${c.y}px`;
+    }
+  };
+
   const placeLabels = () => {
+    if (opts.wiring) {
+      placeWiring();
+      return;
+    }
     const w = canvas.clientWidth;
     const hh = canvas.clientHeight;
     body.updateWorldMatrix(true, false);
@@ -442,6 +541,27 @@ export async function createRobotScene(
   return {
     setState: (s) => {
       target = s;
+    },
+    highlight: (k) => {
+      if (!opts.wiring) return;
+      legs.forEach((leg, i) => {
+        const on = k === leg.label;
+        legMeshes[i].forEach((m) => {
+          if (on) {
+            if (!origMat.has(m)) origMat.set(m, m.material);
+            m.material = matHi;
+          } else if (origMat.has(m)) {
+            m.material = origMat.get(m)!;
+            origMat.delete(m);
+          }
+        });
+        wtags[i].classList.toggle('on', on);
+        wtags[i].classList.toggle('dim', k !== null && !on);
+        wdots[i].forEach((d) => {
+          d.classList.toggle('on', on);
+          d.classList.toggle('dim', k !== null && !on);
+        });
+      });
     },
     rotate: (dAz, dEl = 0) => {
       az += dAz;

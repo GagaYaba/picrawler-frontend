@@ -10,7 +10,10 @@ describe('navigation', () => {
   it('marks the section matching the URL hash as current', () => {
     window.location.hash = '#plan';
     render(<App />);
-    expect(screen.getByRole('link', { name: 'Plan' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Plan & Montage' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
     expect(screen.getByRole('link', { name: 'Simulation' })).not.toHaveAttribute('aria-current');
   });
 

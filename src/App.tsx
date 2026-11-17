@@ -3,6 +3,7 @@ import { Brand } from './components/Brand';
 import { EmergencyStop } from './components/EmergencyStop';
 import { StopContext } from './components/StopContext';
 import { useSimulation } from './hooks/useSimulation';
+import { PlanView } from './views/PlanView';
 import { RealRobotView } from './views/RealRobotView';
 import { SimulationView } from './views/SimulationView';
 import { VIEWS, viewFromHash } from './viewList';
@@ -56,13 +57,7 @@ export function App() {
         ) : view === 'robot' ? (
           <RealRobotView sim={sim} />
         ) : (
-          <>
-            <h1 className="sec">
-              {current.title}
-              <span>{current.subtitle}</span>
-            </h1>
-            <p>Écran en cours de construction.</p>
-          </>
+          <PlanView />
         )}
       </main>
       <footer className="safety pad" aria-label="Sécurité">

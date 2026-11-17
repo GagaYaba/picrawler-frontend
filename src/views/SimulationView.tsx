@@ -114,11 +114,11 @@ export function SimulationView({ sim }: Props) {
                 </div>
               </VideoFrame>
             </div>
-            <figcaption>
-              {scene3d
-                ? 'Fig. 1 — Modèle 3D du PiCrawler, vue orbitale. Faire glisser pour tourner autour.'
-                : 'Fig. 1 — Vue du dessus, carré de 2 m de côté. Le modèle 3D est indisponible.'}
-            </figcaption>
+            {!scene3d && (
+              <figcaption>
+                Vue du dessus, carré de 2 m de côté. Le modèle 3D est indisponible.
+              </figcaption>
+            )}
           </figure>
           <dl className="band" aria-label="Télémétrie simulée">
             {cells.map(([k, v, u]) => (
@@ -191,9 +191,6 @@ export function SimulationView({ sim }: Props) {
                   </div>
                 ))}
               </div>
-              <p className="note">
-                Ports du Robot HAT par patte : 1 P9 à P11, 2 P3 à P5, 3 P0 à P2, 4 P6 à P8.
-              </p>
             </div>
           </section>
           <section className="pnl" aria-labelledby="p-log">
